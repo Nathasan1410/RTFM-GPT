@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RTFM-GPT Documentation</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+
+  <div class="menu-toggle">☰</div>
+  <div class="overlay"></div>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <a href="?page=home" class="brand">RTFM-GPT</a>
+      
+      <div class="nav-group">
+        <div class="nav-header">User Guide</div>
+        <a href="?page=user-guide/getting-started" class="nav-link">Getting Started</a>
+        <a href="?page=user-guide/workflow" class="nav-link">The Workflow</a>
+        <a href="?page=user-guide/keyboard-shortcuts" class="nav-link">Shortcuts</a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-header">Technical</div>
+        <a href="?page=technical/architecture" class="nav-link">Architecture</a>
+        <a href="?page=technical/api-reference" class="nav-link">API Reference</a>
+      </div>
+      
+      <div class="nav-group">
+        <div class="nav-header">Meta</div>
+        <a href="https://github.com/yourusername/rtfm-gpt" target="_blank" class="nav-link">GitHub Repo</a>
+      </div>
+    </aside>
+
+    <main class="main" id="content">
+      <!-- Content will be loaded here -->
+      <div style="text-align: center; margin-top: 20%;">
+        <h1 style="border:none;">RTFM-GPT</h1>
+        <p>Loading documentation...</p>
+      </div>
+    </main>
+  </div>
+
+  <script src="assets/nav.js"></script>
+  <script>
+    const contentDiv = document.getElementById('content');
+    
+    // Simple router
+    function loadPage() {
+      const params = new URLSearchParams(window.location.search);
+      const page = params.get('page') || 'home';
+      
+      let file = '';
+      if (page === 'home') {
+        file = 'home.md'; // We'll create a home.md
+      } else {
+        file = page + '.md';
+      }
+
+      fetch(file)
+        .then(response => {
+          if (!response.ok) throw new Error('Page not found');
+          return response.text();
+        })
+        .then(text => {
+          contentDiv.innerHTML = marked.parse(text);
+          // Update active link
+          document.querySelectorAll('.nav-link').forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('href') === `?page=${page}`) {
+              link.classList.add('active');
+            }
+          });
+        })
+        .catch(err => {
+          contentDiv.innerHTML = `<h1>404</h1><p>Documentation page not found: ${file}</p><a href="?page=home">Go Home</a>`;
+        });
+    }
+
+    window.addEventListener('popstate', loadPage);
+    loadPage();
+  </script>
+</body>
+</html>

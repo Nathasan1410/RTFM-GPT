@@ -1,65 +1,192 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, Terminal } from "lucide-react";
+import { nanoid } from "nanoid";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { RecentRoadmaps } from "@/components/recent-roadmaps";
+import { cn } from "@/lib/utils";
+import { useAppStore } from "@/lib/store";
+import { Roadmap } from "@/types/schemas";
+
+const SUGGESTIONS = ["React Hooks", "System Design", "Rust Lifetimes", "Solidity Security"];
 
 export default function Home() {
+  const [topic, setTopic] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const addRoadmap = useAppStore((state) => state.addRoadmap);
+  const roadmaps = useAppStore((state) => state.roadmaps);
+  const hasRoadmaps = Object.keys(roadmaps).length > 0;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanTopic = topic.trim();
+    
+    // Validation
+    if (cleanTopic.length < 3) {
+      setError("Topic must be at least 3 characters");
+      return;
+    }
+    if (cleanTopic.length > 100) {
+      setError("Topic must be less than 100 characters");
+      return;
+    }
+
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      // Get existing roadmaps titles for context
+      const existingTitles = Object.values(roadmaps).map(r => r.title);
+
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: cleanTopic, existingTitles }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate roadmap');
+      }
+
+      const newId = nanoid(21);
+      const newRoadmap: Roadmap = {
+        id: newId,
+        title: data.title,
+        topic: cleanTopic,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        modules: data.modules.map((m: any) => ({
+          ...m,
+          id: nanoid(21), // Generate IDs for modules here
+        })),
+      };
+
+      await addRoadmap(newRoadmap);
+      router.push(`/roadmap/${newId}`);
+    } catch (err) {
+      console.error(err);
+      setError((err as Error).message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-56px)] py-20 px-6">
+      {/* Hero Section */}
+      <div className="text-center max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-zinc-50">
+          Master Anything
+        </h1>
+        <p className="text-lg text-zinc-400 max-w-lg mx-auto leading-relaxed">
+          AI generates structured roadmaps that force you to read official documentation. 
+          No tutorials. No spoon-feeding. Just you and the manual.
+        </p>
+        <p className="text-xs font-mono text-zinc-600 tracking-wide mt-6">
+          Powered by Cerebras • No login required • Local storage
+        </p>
+      </div>
+
+      {/* Input Interface */}
+      <div className="w-full max-w-xl mt-12 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
+        <form onSubmit={handleSubmit} className="relative group">
+          <label 
+            htmlFor="topic" 
+            className="block text-xs font-medium uppercase tracking-widest text-zinc-500 mb-2 pl-1"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+            What do you want to master?
+          </label>
+          
+          <div className={cn(
+            "relative flex items-center bg-zinc-900 border rounded-sm overflow-hidden transition-colors",
+            error 
+              ? "border-red-500 ring-1 ring-red-500" 
+              : "border-zinc-700 focus-within:border-zinc-600 focus-within:ring-1 focus-within:ring-zinc-600",
+            isLoading && "opacity-80 cursor-not-allowed border-zinc-600"
+          )}>
+            <Terminal className={cn(
+              "absolute left-4 w-5 h-5 transition-colors",
+              error ? "text-red-500" : "text-zinc-600"
+            )} />
+            <Input
+              id="topic"
+              value={topic}
+              onChange={(e) => {
+                setTopic(e.target.value);
+                if (error) setError(null);
+              }}
+              placeholder="e.g., Next.js App Router, Rust Ownership..."
+              className="h-16 pl-12 pr-32 text-lg bg-transparent border-none focus-visible:ring-0 placeholder:text-zinc-700 text-zinc-50 font-mono"
+              disabled={isLoading}
+              autoComplete="off"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+            
+            <Button 
+              type="submit" 
+              disabled={!topic.trim() || isLoading}
+              className={cn(
+                "absolute right-2 top-3 h-10 px-4 rounded-sm text-sm font-mono font-medium transition-all",
+                "bg-zinc-100 text-zinc-950 hover:bg-zinc-200",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+            >
+              {isLoading ? (
+                <span className="flex items-center gap-2">
+                  <span>Consulting docs</span>
+                  <span className="animate-blink">█</span>
+                </span>
+              ) : (
+                <span className="flex items-center gap-1">
+                  Generate <ArrowRight className="w-4 h-4" />
+                </span>
+              )}
+            </Button>
+          </div>
+          
+          {/* Error Message */}
+          {error && (
+            <p className="text-sm text-red-500 font-mono mt-2 pl-1 animate-in fade-in slide-in-from-top-1">
+              {error}
+            </p>
+          )}
+        </form>
+
+        {/* Empty State Suggestions */}
+        {!hasRoadmaps && !isLoading && (
+          <div className="mt-6 text-center animate-in fade-in duration-700 delay-300">
+            <p className="text-sm text-zinc-600 mb-4">
+              Type a topic above to generate your first learning roadmap.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <span className="text-xs text-zinc-500 uppercase tracking-wider mr-1">Try:</span>
+              {SUGGESTIONS.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  onClick={() => {
+                    setTopic(suggestion);
+                    setError(null);
+                    // Optional: focus input
+                    document.getElementById('topic')?.focus();
+                  }}
+                  className="text-xs font-mono border border-zinc-800 bg-zinc-900 px-2 py-1 rounded-sm text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 transition-colors"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Recent Roadmaps */}
+      <RecentRoadmaps />
     </div>
   );
 }
