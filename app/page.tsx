@@ -49,6 +49,14 @@ export default function Home() {
         body: JSON.stringify({ topic: cleanTopic, existingTitles }),
       });
 
+      // Check if response is JSON
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("API returned non-JSON:", text);
+        throw new Error(`Server Error: Received ${response.status} ${response.statusText}`);
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
@@ -62,6 +70,7 @@ export default function Home() {
         topic: cleanTopic,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         modules: data.modules.map((m: any) => ({
           ...m,
           id: nanoid(21), // Generate IDs for modules here
@@ -83,7 +92,7 @@ export default function Home() {
       {/* Hero Section */}
       <div className="text-center max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-zinc-50">
-          Master Anything
+          READ THE F*CKING MANUAL
         </h1>
         <p className="text-lg text-zinc-400 max-w-lg mx-auto leading-relaxed">
           AI generates structured roadmaps that force you to read official documentation. 

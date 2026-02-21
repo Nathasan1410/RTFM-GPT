@@ -52,7 +52,7 @@ export function DeleteRoadmapDialog({
         </div>
         
         <p className="text-zinc-400 mb-2">
-          Are you sure you want to delete <span className="text-zinc-200 font-mono font-bold">"{title}"</span>?
+          Are you sure you want to delete <span className="text-zinc-200 font-mono font-bold">&quot;{title}&quot;</span>?
         </p>
         <p className="text-zinc-500 text-sm mb-6">
           This action cannot be undone. All progress and notes will be permanently lost.

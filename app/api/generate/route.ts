@@ -1,163 +1,131 @@
 import { NextResponse } from 'next/server';
-import Cerebras from '@cerebras/cerebras_cloud_sdk';
 import { GenerateRequestSchema, GenerateResponseSchema } from '@/types/schemas';
 import { z } from 'zod';
-
-// Rate limiting (simple in-memory)
-const rateLimit = new Map<string, number[]>();
-const WINDOW_MS = 60 * 1000; // 1 minute
-const MAX_REQUESTS = 5;
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const requests = rateLimit.get(ip) || [];
-  const validRequests = requests.filter(time => now - time < WINDOW_MS);
-  
-  if (validRequests.length >= MAX_REQUESTS) {
-    return false;
-  }
-  
-  validRequests.push(now);
-  rateLimit.set(ip, validRequests);
-  return true;
-}
+import { getAIClient } from '@/lib/ai';
 
 export async function POST(req: Request) {
   try {
-    // Rate limit check
-    const ip = req.headers.get('x-forwarded-for') || 'unknown';
-    if (!checkRateLimit(ip)) {
-      return NextResponse.json(
-        { error: 'Too many requests. Please try again later.' },
-        { status: 429 }
-      );
-    }
-
     const body = await req.json();
-    const parseResult = GenerateRequestSchema.safeParse(body);
-    
-    if (!parseResult.success) {
+    const { topic } = GenerateRequestSchema.parse(body);
+
+    const cleanTopic = topic.trim();
+    if (cleanTopic.length < 3) {
       return NextResponse.json(
-        { error: 'Invalid input', details: parseResult.error.issues },
+        { error: 'Topic must be at least 3 characters long' },
         { status: 400 }
       );
     }
-    
-    const { topic, existingTitles } = parseResult.data;
-    
-    if (!process.env.CEREBRAS_API_KEY) {
-       console.warn("CEREBRAS_API_KEY is missing. Using mock response.");
-       // Mock response for testing without API key
-       return NextResponse.json({
-         title: `Learn ${topic} (Mock)`,
-         modules: [
-           {
-             order: 1,
-             title: "Introduction to " + topic,
-             context: "Understanding the basics is essential because it sets the foundation for advanced concepts.",
-             docUrl: "https://react.dev/learn",
-             challenge: "Read the introduction and explain the core concept in your own words without using code snippets."
-           },
-           {
-             order: 2,
-             title: "Core Concepts",
-             context: "This concept is important because it is used in almost every application you will build.",
-             docUrl: "https://react.dev/reference/react",
-             challenge: "Identify the three main characteristics described in the documentation."
-           },
-           {
-             order: 3,
-             title: "Advanced Usage",
-             context: "Mastering this is essential for building scalable applications.",
-             docUrl: "https://react.dev/learn/escape-hatches",
-             challenge: "Describe the trade-offs mentioned in the 'Performance' section."
-           }
-         ]
-       });
-    }
 
-    const client = new Cerebras({
-      apiKey: process.env.CEREBRAS_API_KEY,
-    });
+    const groqKey = req.headers.get('x-api-key-groq') || undefined;
+    const cerebrasKey = req.headers.get('x-api-key-cerebras') || undefined;
 
-    let systemPrompt = `
-You are a Brutal Tech Mentor. Your goal is to create a learning roadmap for the user on the topic: "${topic}".
-You must be direct, no fluff, demanding but constructive.
+    const { client, defaultModel } = getAIClient({ groq: groqKey, cerebras: cerebrasKey });
+
+    const systemPrompt = `
+You are a Brutal Tech Mentor & Project Architect.
+Your goal is to break down the user's request: "${topic}" into a "Project-Based Micro-Chunking" roadmap.
+
+PHILOSOPHY:
+- "Guide me to build ONE SPECIFIC REAL PRODUCT, not teaching framework abstractly."
+- Step N+1 depends on Step N.
+- Each step must have a CONCRETE DELIVERABLE (verifiable code).
 
 CONSTRAINT:
-- DO NOT provide code snippets.
-- DO NOT summarize documentation.
-- YOU MUST reference specific sections in official documentation.
-- The output must be valid JSON matching the schema below.
-- docUrl must be from official documentation domains (e.g., react.dev, developer.mozilla.org, docs.python.org). Avoid blogs like medium.com.
-- challenge must NOT contain code blocks or function definitions.
-- context must explain WHY the module is important (use words like 'because', 'important', 'essential').
+- DO NOT provide code snippets in the "challenge" field.
+- "context" must explain the WHY (use words like 'because', 'important', 'essential') and be laser-focused on the specific step.
+- "verificationCriteria" must be a list of 3-5 specific checks for the AI Judge (e.g., "Contains <img> tag", "CSS uses object-fit: cover").
+- "groundTruth" is the CORRECT solution code for this step.
+- "starterCode" is the initial boilerplate (optional).
 
 JSON Structure:
 {
-  "title": "Roadmap Title",
+  "title": "Project Title (e.g., Product Review Card)",
   "modules": [
     {
       "order": 1,
-      "title": "Module Title",
-      "context": "Explanation of why this is important...",
-      "docUrl": "https://official.docs/...",
-      "challenge": "Specific actionable challenge..."
+      "title": "Step Title (e.g., Setup Container)",
+      "context": "Explanation of the concept (Box Model, etc.) and why it is essential...",
+      "docs": [
+        { "title": "MDN Box Model", "url": "https://developer.mozilla.org/..." }
+      ],
+      "challenge": "Specific instruction on what to build...",
+      "verificationCriteria": [
+        "Check for div with class 'card'",
+        "Check width is fixed or max-width",
+        "Check padding is applied"
+      ],
+      "groundTruth": "<div class='card'>...</div>",
+      "starterCode": "<!-- Write your code here -->"
     }
   ]
 }
-Generate 5-7 modules.
+Generate 5-7 micro-steps.
 `;
 
-    if (existingTitles && existingTitles.length > 0) {
-      systemPrompt += `\n\nUser already has roadmaps: ${existingTitles.join(", ")}. Create something different or complementary. Avoid repeating the same structure if possible.`;
-    }
-
-    const completion = await client.chat.completions.create({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const completion = await (client as any).chat.completions.create({
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Create a rigorous learning roadmap for: ${topic}` }
+        { role: 'user', content: `Create a rigorous learning roadmap for: ${cleanTopic}` }
       ],
-      model: 'llama-3.3-70b',
+      model: defaultModel,
       temperature: 0.7,
       max_completion_tokens: 4000,
       response_format: { type: 'json_object' },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any;
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
-      throw new Error('No content received from AI');
+      throw new Error('Failed to generate content');
     }
 
-    // Parse JSON
+    // Try to sanitize JSON if it contains markdown code blocks
+    let cleanContent = content;
+    const markdownMatch = content.match(/```json\n([\s\S]*?)\n```/);
+    if (markdownMatch) {
+      cleanContent = markdownMatch[1];
+    }
+
     let json;
     try {
-      json = JSON.parse(content);
+      json = JSON.parse(cleanContent);
     } catch (e) {
-      // Fallback: try to extract JSON from markdown block
-      const match = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/\{[\s\S]*\}/);
-      if (match) {
-        json = JSON.parse(match[1] || match[0]);
-      } else {
-        throw new Error('Failed to parse JSON response');
-      }
+      console.error("JSON Parse Error:", e);
+      console.error("Raw Content:", content);
+      throw new Error('Invalid JSON format received from AI');
     }
 
-    // Validate with Zod
     const validated = GenerateResponseSchema.parse(json);
-
+    
     return NextResponse.json(validated);
-
   } catch (error) {
     console.error('API Error:', error);
-    if (error instanceof z.ZodError) {
+
+    // Handle 402 Payment Required (Groq/Cerebras generic)
+    if (error instanceof Error && error.message.includes('402')) {
       return NextResponse.json(
-        { error: 'AI response validation failed', details: error.issues },
-        { status: 502 } // Bad Gateway (upstream response invalid)
+        { error: 'Payment Required. Please check your API plan.' },
+        { status: 402 }
       );
     }
+    // Handle 404 Model Not Found
+    if (error instanceof Error && error.message.includes('404')) {
+      return NextResponse.json(
+        { error: 'Model not found. Please check your API key and model availability.' },
+        { status: 404 }
+      );
+    }
+
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Validation Error', details: error.issues },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
-      { error: 'Internal Server Error' },
+      { error: 'Internal Server Error', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

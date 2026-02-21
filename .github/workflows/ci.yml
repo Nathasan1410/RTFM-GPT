@@ -1,25 +1,100 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
+  workflow_dispatch:
 
 jobs:
-  build:
+  verify:
+    name: Code Verification
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    - name: Use Node.js 18
-      uses: actions/setup-node@v3
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
       with:
-        node-version: 18
+        node-version: '18'
         cache: 'npm'
 
-    - run: npm ci
-    - run: npm run lint
-    - run: npx tsc --noEmit
-    - run: npm run build
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run ESLint
+      run: npm run lint
+
+    - name: Run TypeScript type check
+      run: npm run typecheck
+
+    - name: Run unit tests
+      run: npm run test
+
+    - name: Run test coverage
+      run: npm run test:coverage
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+    - name: Check coverage thresholds
+      run: |
+        COVERAGE=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
+        if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+          echo "Coverage ($COVERAGE%) is below 80% threshold"
+          exit 1
+        fi
+        echo "Coverage ($COVERAGE%) meets 80% threshold"
+
+    - name: Run security audit
+      run: npm run audit:check
+      continue-on-error: true
+
+    - name: Build project
+      run: npm run build
+
+    - name: Upload verification reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: verification-reports
+        path: |
+          reports/
+          coverage/
+
+  deploy:
+    name: Deploy to Production
+    needs: verify
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build for production
+      run: npm run build
+
+    - name: Deploy
+      run: |
+        echo "Deploying to production..."
+        # Add your deployment commands here
+        # Example: npm run deploy
+        echo "Deployment completed!"

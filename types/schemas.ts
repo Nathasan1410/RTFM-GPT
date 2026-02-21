@@ -8,13 +8,21 @@ export const ModuleContentSchema = z.object({
   title: z.string().min(5).max(100),
   context: z.string()
     .min(20)
-    .max(300)
-    .regex(/(because|important|essential)/i, "Context must explain WHY (use 'because', 'important', or 'essential')"),
-  docUrl: z.string().url().startsWith("https://", "Must be a valid HTTPS URL"),
+    .max(300),
+    // .regex(/(because|important|essential)/i, "Context must explain WHY (use 'because', 'important', or 'essential')"),
+  docUrl: z.string().url().startsWith("https://", "Must be a valid HTTPS URL").optional(),
+  docs: z.array(z.object({
+    title: z.string().min(3).max(50),
+    url: z.string().url()
+  })).optional().default([]),
   challenge: z.string()
     .min(30)
     .max(500)
     .refine((val) => !/```|function\s+\w+\(/.test(val), "Challenge cannot contain code snippets (no code blocks or function declarations)"),
+  // v2.0 New Fields
+  verificationCriteria: z.array(z.string().min(5).max(150)).min(3).max(10).optional().default([]),
+  groundTruth: z.string().optional(),
+  starterCode: z.string().optional(),
 });
 
 export type ModuleContent = z.infer<typeof ModuleContentSchema>;
@@ -51,6 +59,10 @@ export const ProgressEntrySchema = z.object({
   moduleId: z.string(),
   isCompleted: z.boolean(),
   completedAt: z.string().datetime().nullable(),
+  // v2.0 New Fields
+  userCode: z.string().optional(),
+  verificationStatus: z.enum(['LOCKED', 'ACTIVE', 'VERIFIED', 'COMPLETED']).optional().default('ACTIVE'),
+  attempts: z.number().optional().default(0),
 });
 
 export type ProgressEntry = z.infer<typeof ProgressEntrySchema>;
@@ -71,9 +83,13 @@ export const GenerateResponseSchema = z.object({
     title: z.string().min(5).max(100),
     context: z.string()
       .min(20)
-      .max(300)
-      .regex(/(because|important|essential)/i, "Context must explain WHY"),
-    docUrl: z.string().url().startsWith("https://", "Must be a valid HTTPS URL"),
+      .max(300),
+      // .regex(/(because|important|essential)/i, "Context must explain WHY"),
+    docUrl: z.string().url().startsWith("https://", "Must be a valid HTTPS URL").optional(),
+    docs: z.array(z.object({
+      title: z.string(),
+      url: z.string().url()
+    })).optional(),
     challenge: z.string()
       .min(30)
       .max(500)

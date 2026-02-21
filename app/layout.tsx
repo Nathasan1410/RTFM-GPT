@@ -19,6 +19,7 @@ export const metadata: Metadata = {
   keywords: ["learning", "documentation", "programming", "roadmap", "tutorial", "coding", "self-study"],
   authors: [{ name: "RTFM-GPT" }],
   robots: "index, follow",
+  metadataBase: new URL("https://rtfm-gpt.vercel.app"),
   openGraph: {
     title: "RTFM-GPT | Read The F*cking Manual",
     description: "AI-generated learning roadmaps that force you to read official documentation. No spoon-feeding. No shortcuts.",

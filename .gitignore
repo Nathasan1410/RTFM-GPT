@@ -5,6 +5,7 @@ node_modules
 
 # Testing
 coverage
+reports
 
 # Next.js
 .next/
@@ -40,3 +41,8 @@ next-env.d.ts
 .vscode
 *.swp
 *.swo
+
+# History
+.history/
+
+.vercel

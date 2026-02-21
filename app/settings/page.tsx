@@ -1,13 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Upload, Trash2, AlertTriangle, Check } from "lucide-react";
+import { Upload, AlertTriangle, Check, Download, Key, Eye, EyeOff, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/db";
 import { useAppStore } from "@/lib/store";
-import { ExportDataSchema, ExportData } from "@/types/schemas";
+import { ExportDataSchema, ExportData, ProgressEntry } from "@/types/schemas";
+
+const API_PROVIDERS = [
+  { id: 'groq', name: 'Groq', placeholder: 'gsk_...', url: 'https://console.groq.com/keys' },
+  { id: 'cerebras', name: 'Cerebras', placeholder: 'csk-...', url: 'https://cloud.cerebras.ai/platform' },
+  { id: 'brave', name: 'Brave Search', placeholder: 'BSA...', url: 'https://api.search.brave.com/app/keys' },
+  { id: 'serper', name: 'Serper (Google)', placeholder: 'API Key...', url: 'https://serper.dev/api-key' },
+] as const;
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -16,6 +25,42 @@ export default function SettingsPage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // API Key State
+  const apiKeys = useAppStore((state) => state.apiKeys);
+  const setApiKey = useAppStore((state) => state.setApiKey);
+  const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({});
+  const [tempKeys, setTempKeys] = useState<Record<string, string>>({});
+  const [keyStatus, setKeyStatus] = useState<Record<string, 'idle' | 'testing' | 'valid' | 'invalid'>>({});
+
+  useEffect(() => {
+    // Sync store keys to temp state on load
+    setTempKeys(apiKeys as Record<string, string>);
+  }, [apiKeys]);
+
+  const toggleVisibility = (id: string) => {
+    setVisibleKeys(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleKeyChange = (id: string, value: string) => {
+    setTempKeys(prev => ({ ...prev, [id]: value }));
+    setKeyStatus(prev => ({ ...prev, [id]: 'idle' }));
+  };
+
+  const saveKey = (id: string) => {
+    const key = tempKeys[id];
+    setApiKey(id as 'groq' | 'cerebras' | 'brave' | 'serper', key || undefined);
+    // Visual feedback
+    setKeyStatus(prev => ({ ...prev, [id]: 'valid' })); // Optimistic save
+    setTimeout(() => setKeyStatus(prev => ({ ...prev, [id]: 'idle' })), 2000);
+  };
+
+  const clearKey = (id: string) => {
+    if (confirm(`Remove ${id} API Key?`)) {
+        setApiKey(id as 'groq' | 'cerebras' | 'brave' | 'serper', undefined);
+        setTempKeys(prev => ({ ...prev, [id]: '' }));
+    }
+  };
   
   const initializeStore = useAppStore((state) => state.initialize);
 
@@ -28,7 +73,7 @@ export default function SettingsPage() {
       const progress = progressArr.reduce((acc, p) => ({ 
         ...acc, 
         [`${p.roadmapId}_${p.moduleId}`]: p 
-      }), {} as Record<string, any>);
+      }), {} as Record<string, ProgressEntry>);
 
       const data: ExportData = {
         version: "1.0",
@@ -66,7 +111,7 @@ export default function SettingsPage() {
       let json;
       try {
         json = JSON.parse(text);
-      } catch (err) {
+      } catch {
         throw new Error("Invalid JSON file");
       }
 
@@ -98,6 +143,8 @@ export default function SettingsPage() {
       setIsDeleting(true);
       try {
         await db.clearAll();
+        // Clear local storage too
+        localStorage.clear();
         await initializeStore();
         router.push("/");
       } catch (error) {
@@ -112,9 +159,87 @@ export default function SettingsPage() {
   return (
     <div className="container max-w-4xl mx-auto py-12 px-6 space-y-12">
       <div>
-        <h1 className="text-3xl font-bold font-mono text-zinc-50 mb-2">Data Management</h1>
-        <p className="text-zinc-400">Manage your local data. You are in full control.</p>
+        <h1 className="text-3xl font-bold font-mono text-zinc-50 mb-2">Settings</h1>
+        <p className="text-zinc-400">Manage your API keys and local data.</p>
       </div>
+
+      {/* API Keys Section */}
+      <section className="border border-zinc-800 bg-zinc-900/30 p-8 rounded-sm space-y-6">
+        <div className="flex items-center gap-3 mb-6 border-b border-zinc-800 pb-4">
+          <Key className="w-5 h-5 text-zinc-400" />
+          <div>
+            <h2 className="text-xl font-bold text-zinc-200">API Configuration</h2>
+            <p className="text-sm text-zinc-500">
+              Your keys are stored locally in your browser. They are never sent to our servers, only to the respective API providers.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          {API_PROVIDERS.map((provider) => (
+            <div key={provider.id} className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor={provider.id} className="text-zinc-300 font-mono text-sm uppercase tracking-wide">
+                  {provider.name}
+                </Label>
+                <a 
+                  href={provider.url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                >
+                  Get Key <Download className="w-3 h-3 rotate-180" />
+                </a>
+              </div>
+              
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    id={provider.id}
+                    type={visibleKeys[provider.id] ? "text" : "password"}
+                    placeholder={provider.placeholder}
+                    value={tempKeys[provider.id] || ""}
+                    onChange={(e) => handleKeyChange(provider.id, e.target.value)}
+                    className="pr-10 bg-zinc-950 border-zinc-800 focus:border-zinc-600 font-mono text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => toggleVisibility(provider.id)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                  >
+                    {visibleKeys[provider.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                
+                <Button 
+                  onClick={() => saveKey(provider.id)}
+                  variant="secondary"
+                  size="icon"
+                  className={cn(
+                    "border border-zinc-700 transition-all",
+                    keyStatus[provider.id] === 'valid' ? "bg-green-900/20 text-green-500 border-green-900" : ""
+                  )}
+                  title="Save Key"
+                >
+                   {keyStatus[provider.id] === 'valid' ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                </Button>
+
+                {apiKeys[provider.id as keyof typeof apiKeys] && (
+                  <Button
+                    onClick={() => clearKey(provider.id)}
+                    variant="ghost"
+                    size="icon"
+                    className="text-zinc-500 hover:text-red-400"
+                    title="Remove Key"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* Export Section */}
       <section className="border border-zinc-800 bg-zinc-900/30 p-8 rounded-sm space-y-6">

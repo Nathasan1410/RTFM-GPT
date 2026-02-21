@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { AlertTriangle, Download, RefreshCw, Home } from "lucide-react";
+import { AlertTriangle, RefreshCw, Download, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
-import { ExportData, ExportDataSchema } from "@/types/schemas";
+import { ExportData, ProgressEntry } from "@/types/schemas";
 
 export default function GlobalError({
   error,
@@ -14,7 +13,6 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  const router = useRouter();
   const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
@@ -32,7 +30,7 @@ export default function GlobalError({
       const progress = progressArr.reduce((acc, p) => ({ 
         ...acc, 
         [`${p.roadmapId}_${p.moduleId}`]: p 
-      }), {} as Record<string, any>);
+      }), {} as Record<string, ProgressEntry>);
 
       const data: ExportData = {
         version: "1.0",
@@ -69,7 +67,7 @@ export default function GlobalError({
         </h1>
         
         <p className="text-zinc-400 mb-6 font-mono text-sm leading-relaxed">
-          Something went wrong. We've caught the error to prevent a total crash.
+          Something went wrong. We&apos;ve caught the error to prevent a total crash.
           Your data is safe in local storage.
         </p>
 

@@ -7,14 +7,9 @@ import {
   Search, 
   Terminal, 
   Settings, 
-  Download, 
   HelpCircle, 
-  ArrowRight,
-  History,
-  Trash2
+  History
 } from "lucide-react";
-import { useAppStore } from "@/lib/store";
-import { cn } from "@/lib/utils";
 import { db } from "@/lib/db";
 import { Roadmap } from "@/types/schemas";
 

@@ -9,11 +9,13 @@ interface AppStore extends AppState {
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
   initialize: () => Promise<void>;
+  saveModuleProgress: (roadmapId: string, moduleId: string, updates: Partial<ProgressEntry>) => Promise<void>;
 }
 
 export const useAppStore = create<AppStore>()((set, get) => ({
   roadmaps: {},
   progress: {},
+  apiKeys: {},
   activeRoadmapId: null,
   isLoading: true, // Start loading by default until initialized
   error: null,
@@ -29,7 +31,15 @@ export const useAppStore = create<AppStore>()((set, get) => ({
       const roadmaps = roadmapsArr.reduce((acc, r) => ({ ...acc, [r.id]: r }), {} as Record<string, Roadmap>);
       const progress = progressArr.reduce((acc, p) => ({ ...acc, [`${p.roadmapId}_${p.moduleId}`]: p }), {} as Record<string, ProgressEntry>);
 
-      set({ roadmaps, progress, isLoading: false });
+      // Load API keys from localStorage
+      const apiKeys = {
+        groq: localStorage.getItem('rtfm_api_groq') || undefined,
+        cerebras: localStorage.getItem('rtfm_api_cerebras') || undefined,
+        brave: localStorage.getItem('rtfm_api_brave') || undefined,
+        serper: localStorage.getItem('rtfm_api_serper') || undefined,
+      };
+
+      set({ roadmaps, progress, apiKeys, isLoading: false });
     } catch (error) {
       console.error('Failed to initialize store:', error);
       set({ error: 'Failed to load data', isLoading: false });
@@ -83,13 +93,72 @@ export const useAppStore = create<AppStore>()((set, get) => ({
     set({ activeRoadmapId: id });
   },
 
-  toggleModuleCompletion: async (roadmapId: string, moduleId: string, isCompleted: boolean) => {
+  setApiKey: (provider: 'groq' | 'cerebras' | 'brave' | 'serper', key: string | undefined) => {
+    // Persist to localStorage
+    if (key) {
+      localStorage.setItem(`rtfm_api_${provider}`, key);
+    } else {
+      localStorage.removeItem(`rtfm_api_${provider}`);
+    }
+
+    set((state) => ({
+      apiKeys: {
+        ...state.apiKeys,
+        [provider]: key,
+      },
+    }));
+  },
+
+  saveModuleProgress: async (roadmapId: string, moduleId: string, updates: Partial<ProgressEntry>) => {
     const key = `${roadmapId}_${moduleId}`;
-    const entry: ProgressEntry = {
+    const state = get();
+    const existing = state.progress[key] || {
       roadmapId,
       moduleId,
+      isCompleted: false,
+      completedAt: null,
+      attempts: 0,
+      verificationStatus: 'ACTIVE',
+    };
+
+    const entry: ProgressEntry = {
+      ...existing,
+      ...updates,
+      // Ensure composite key parts are preserved
+      roadmapId,
+      moduleId,
+    };
+
+    try {
+      await db.updateProgress(entry); // This updates DB
+      set((state) => ({
+        progress: {
+          ...state.progress,
+          [key]: entry,
+        },
+      }));
+    } catch (error) {
+      console.error('Failed to save progress:', error);
+      set({ error: 'Failed to save progress' });
+    }
+  },
+
+  toggleModuleCompletion: async (roadmapId: string, moduleId: string, isCompleted: boolean) => {
+    const key = `${roadmapId}_${moduleId}`;
+    const state = get();
+    const existing = state.progress[key] || {
+      roadmapId,
+      moduleId,
+      isCompleted: false,
+      completedAt: null,
+      attempts: 0,
+      verificationStatus: 'ACTIVE',
+    };
+
+    const entry: ProgressEntry = {
+      ...existing,
       isCompleted,
-      completedAt: isCompleted ? new Date().toISOString() : null,
+      completedAt: isCompleted ? (existing.completedAt || new Date().toISOString()) : null,
     };
 
     try {

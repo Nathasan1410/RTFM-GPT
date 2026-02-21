@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, notFound } from "next/navigation";
+import { use, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Trash2, Calendar, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProgressDashboard } from "@/components/progress-dashboard";
@@ -9,15 +9,12 @@ import { ModuleCard } from "@/components/module-card";
 import { DeleteRoadmapDialog } from "@/components/delete-roadmap-dialog";
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { Roadmap } from "@/types/schemas";
 
 export default function RoadmapPage({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
-  const [id, setId] = useState<string | null>(null);
-  const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   const router = useRouter();
@@ -25,23 +22,9 @@ export default function RoadmapPage({
   const deleteRoadmap = useAppStore((state) => state.deleteRoadmap);
   const progressState = useAppStore((state) => state.progress);
   const isLoadingStore = useAppStore((state) => state.isLoading);
-  
-  // Unwrap params and fetch roadmap
-  useEffect(() => {
-    params.then((p) => {
-      setId(p.id);
-      const found = roadmaps[p.id];
-      if (found) {
-        setRoadmap(found);
-      } else {
-        // Redirect to 404 if not found (client-side check)
-        // In a real app with SSR, this would be handled differently
-        // notFound(); // This works on server components mostly
-      }
-    });
-  }, [params, roadmaps]);
 
-  if (!id) return null; // Loading params
+  const { id } = use(params);
+  const roadmap = roadmaps[id];
   if (!roadmap) {
     // If roadmap is not found after initial load, show 404 UI
     return (
@@ -142,7 +125,6 @@ export default function RoadmapPage({
              // or if all complete, none is current (or last one)
              // Simple logic: index === completedModules count (0-based index)
              const isCurrent = index === completedModules;
-             const isLocked = index > completedModules; // Sequential locking
 
              return (
                <div key={module.id} className={cn(

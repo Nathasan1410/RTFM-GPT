@@ -11,6 +11,7 @@ export function Header() {
   useEffect(() => {
     // Initial load
     const count = parseInt(localStorage.getItem('rtfm_streak_count') || '0', 10);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStreak(count);
 
     // Listen for storage events (from other tabs or store updates)

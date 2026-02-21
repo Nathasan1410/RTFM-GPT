@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { WifiOff, AlertTriangle } from "lucide-react";
+import { WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function OfflineBanner() {
@@ -16,6 +16,7 @@ export function OfflineBanner() {
 
     // Initial check
     if (!navigator.onLine) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsOffline(true);
     }
 
