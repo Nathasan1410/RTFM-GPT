@@ -116,6 +116,12 @@ Generate 5-7 micro-steps.
         { status: 404 }
       );
     }
+    if (error instanceof Error && error.message.includes('No AI API Key found')) {
+      return NextResponse.json(
+        { error: 'Missing AI API key. Add Groq or Cerebras key in Settings.' },
+        { status: 400 }
+      );
+    }
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(

@@ -1,24 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AlertCircle, X, Settings } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import Link from 'next/link';
 
 export function ApiKeyWarningBanner() {
   const { apiKeys } = useAppStore();
-  const [dismissed, setDismissed] = useState(false);
-
-  useEffect(() => {
-    const wasDismissed = localStorage.getItem('rtfm_api_warning_dismissed');
-    if (wasDismissed) {
-      setDismissed(true);
-    }
-  }, []);
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('rtfm_api_warning_dismissed') === 'true';
+  });
 
   const hasGroqOrCerebras = Boolean(apiKeys.groq || apiKeys.cerebras);
   const hasBrave = Boolean(apiKeys.brave);
-  const hasSerper = Boolean(apiKeys.serper);
 
   if (dismissed) return null;
   if (hasGroqOrCerebras && hasBrave) return null;

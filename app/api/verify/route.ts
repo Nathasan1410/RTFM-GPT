@@ -305,6 +305,12 @@ JSON RESPONSE FORMAT:
 
   } catch (error) {
     console.error('Verify API Error:', error);
+    if (error instanceof Error && error.message.includes('No AI API Key found')) {
+      return NextResponse.json(
+        { error: 'Missing AI API key. Add Groq or Cerebras key in Settings.' },
+        { status: 400 }
+      );
+    }
     return NextResponse.json(
       { error: 'Internal Server Error', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }

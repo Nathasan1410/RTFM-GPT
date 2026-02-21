@@ -18,6 +18,7 @@ type ModuleWorkspaceProps = {
   currentModule: ModuleContent;
   isCompleted: boolean;
   initialUserCode: string;
+  apiKeys: { groq?: string | undefined; cerebras?: string | undefined; brave?: string | undefined; serper?: string | undefined };
   toggleCompletion: (roadmapId: string, moduleId: string, isCompleted: boolean) => void;
   saveModuleProgress: (roadmapId: string, moduleId: string, updates: Partial<ProgressEntry>) => Promise<void>;
 };
@@ -29,6 +30,7 @@ function ModuleWorkspace({
   currentModule,
   isCompleted,
   initialUserCode,
+  apiKeys,
   toggleCompletion,
   saveModuleProgress,
 }: ModuleWorkspaceProps) {
@@ -60,9 +62,13 @@ function ModuleWorkspace({
         return;
       }
 
+      const verifyHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      if (apiKeys.groq) verifyHeaders["x-api-key-groq"] = apiKeys.groq;
+      if (apiKeys.cerebras) verifyHeaders["x-api-key-cerebras"] = apiKeys.cerebras;
+
       const response = await fetch("/api/verify", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: verifyHeaders,
         body: JSON.stringify({
           userCode,
           requirements: currentModule.verificationCriteria,
@@ -97,9 +103,14 @@ function ModuleWorkspace({
     setIsChatLoading(true);
 
     try {
+      const chatHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      if (apiKeys.groq) chatHeaders["x-api-key-groq"] = apiKeys.groq;
+      if (apiKeys.cerebras) chatHeaders["x-api-key-cerebras"] = apiKeys.cerebras;
+      if (apiKeys.brave) chatHeaders["x-api-key-brave"] = apiKeys.brave;
+
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: chatHeaders,
         body: JSON.stringify({
           message: userMsg,
           context: {
@@ -107,7 +118,7 @@ function ModuleWorkspace({
             moduleTitle: currentModule.title,
             moduleContext: currentModule.context,
             challenge: currentModule.challenge,
-            userCode // Optional: send user code for context
+            userCode
           }
         }),
       });
@@ -375,6 +386,7 @@ export default function ModulePage({
   const toggleCompletion = useAppStore((state) => state.toggleModuleCompletion);
   const saveModuleProgress = useAppStore((state) => state.saveModuleProgress);
   const isLoading = useAppStore((state) => state.isLoading);
+  const apiKeys = useAppStore((state) => state.apiKeys);
 
   const roadmap = roadmaps[roadmapId];
   const currentModule = roadmap?.modules.find((m) => m.id === moduleId);
@@ -511,6 +523,7 @@ export default function ModulePage({
           currentModule={currentModule}
           isCompleted={isCompleted}
           initialUserCode={initialUserCode}
+          apiKeys={apiKeys}
           toggleCompletion={toggleCompletion}
           saveModuleProgress={saveModuleProgress}
         />

@@ -27,7 +27,7 @@ export default function DocsPage() {
       <div className="space-y-6">
         <h1 className="text-4xl font-bold font-mono text-zinc-50">Documentation</h1>
         <p className="text-lg text-zinc-400 max-w-2xl">
-          Read The F*cking Manual. This project is built on the philosophy of <span className="text-zinc-200 font-mono">"Curating Ignorance"</span> - telling you *what* to learn, but forcing you to read the official documentation for the *how*.
+          Read The F*cking Manual. This project is built on the philosophy of <span className="text-zinc-200 font-mono">&ldquo;Curating Ignorance&rdquo;</span> - telling you *what* to learn, but forcing you to read the official documentation for the *how*.
         </p>
       </div>
 

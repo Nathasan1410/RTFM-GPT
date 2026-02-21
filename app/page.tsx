@@ -19,6 +19,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const addRoadmap = useAppStore((state) => state.addRoadmap);
+  const apiKeys = useAppStore((state) => state.apiKeys);
   const roadmaps = useAppStore((state) => state.roadmaps);
   const hasRoadmaps = Object.keys(roadmaps).length > 0;
 
@@ -43,9 +44,13 @@ export default function Home() {
       // Get existing roadmaps titles for context
       const existingTitles = Object.values(roadmaps).map(r => r.title);
 
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (apiKeys.groq) headers['x-api-key-groq'] = apiKeys.groq;
+      if (apiKeys.cerebras) headers['x-api-key-cerebras'] = apiKeys.cerebras;
+
       const response = await fetch('/api/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ topic: cleanTopic, existingTitles }),
       });
 
@@ -99,7 +104,7 @@ export default function Home() {
           No tutorials. No spoon-feeding. Just you and the manual.
         </p>
         <p className="text-xs font-mono text-zinc-600 tracking-wide mt-6">
-          You are on your own • No login required • Local storage
+          Powered by Cerebras • No login required • Local storage
         </p>
       </div>
 
