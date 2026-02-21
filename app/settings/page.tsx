@@ -12,10 +12,10 @@ import { useAppStore } from "@/lib/store";
 import { ExportDataSchema, ExportData, ProgressEntry } from "@/types/schemas";
 
 const API_PROVIDERS = [
-  { id: 'groq', name: 'Groq', placeholder: 'gsk_...', url: 'https://console.groq.com/keys' },
-  { id: 'cerebras', name: 'Cerebras', placeholder: 'csk-...', url: 'https://cloud.cerebras.ai/platform' },
-  { id: 'brave', name: 'Brave Search', placeholder: 'BSA...', url: 'https://api.search.brave.com/app/keys' },
-  { id: 'serper', name: 'Serper (Google)', placeholder: 'API Key...', url: 'https://serper.dev/api-key' },
+  { id: 'groq', name: 'Groq', placeholder: 'gsk_...', url: 'https://console.groq.com/keys', importance: 'crucial' as const },
+  { id: 'cerebras', name: 'Cerebras', placeholder: 'csk-...', url: 'https://cloud.cerebras.ai/platform', importance: 'crucial' as const },
+  { id: 'brave', name: 'Brave Search', placeholder: 'BSA...', url: 'https://api.search.brave.com/app/keys', importance: 'recommended' as const },
+  { id: 'serper', name: 'Serper (Google)', placeholder: 'API Key...', url: 'https://serper.dev/api-key', importance: 'optional' as const },
 ] as const;
 
 export default function SettingsPage() {
@@ -175,22 +175,70 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* API Key Importance Guide */}
+        <div className="bg-zinc-950/50 border border-zinc-800 rounded-sm p-4 space-y-3">
+          <h3 className="text-sm font-bold text-zinc-300 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-400" />
+            API Key Importance Guide
+          </h3>
+          <div className="space-y-2 text-xs">
+            <div className="flex items-start gap-2">
+              <span className="text-red-400 font-bold min-w-[60px]">CRUCIAL:</span>
+              <span className="text-zinc-400">
+                <strong className="text-zinc-300">Groq or Cerebras</strong> - Required for roadmap generation and AI features. At least one must be set.
+              </span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-amber-400 font-bold min-w-[60px]">RECOMMENDED:</span>
+              <span className="text-zinc-400">
+                <strong className="text-zinc-300">Brave Search</strong> - Enhances chatbot with web search results. Highly recommended for better AI responses.
+              </span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-zinc-500 font-bold min-w-[60px]">OPTIONAL:</span>
+              <span className="text-zinc-400">
+                <strong className="text-zinc-300">Serper (Google)</strong> - Alternative to Brave Search. Use if you prefer Google results.
+              </span>
+            </div>
+          </div>
+        </div>
+
         <div className="grid gap-6 md:grid-cols-2">
-          {API_PROVIDERS.map((provider) => (
-            <div key={provider.id} className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor={provider.id} className="text-zinc-300 font-mono text-sm uppercase tracking-wide">
-                  {provider.name}
-                </Label>
-                <a 
-                  href={provider.url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
-                >
-                  Get Key <Download className="w-3 h-3 rotate-180" />
-                </a>
-              </div>
+          {API_PROVIDERS.map((provider) => {
+            const importanceColors = {
+              crucial: 'bg-red-500/10 text-red-400 border-red-500/20',
+              recommended: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+              optional: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
+            };
+            const importanceLabels = {
+              crucial: 'CRUCIAL',
+              recommended: 'RECOMMENDED',
+              optional: 'OPTIONAL'
+            };
+
+            return (
+              <div key={provider.id} className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor={provider.id} className="text-zinc-300 font-mono text-sm uppercase tracking-wide">
+                      {provider.name}
+                    </Label>
+                    <span className={cn(
+                      "text-[10px] font-bold px-1.5 py-0.5 rounded border",
+                      importanceColors[provider.importance]
+                    )}>
+                      {importanceLabels[provider.importance]}
+                    </span>
+                  </div>
+                  <a 
+                    href={provider.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                  >
+                    Get Key <Download className="w-3 h-3 rotate-180" />
+                  </a>
+                </div>
               
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -237,7 +285,8 @@ export default function SettingsPage() {
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 

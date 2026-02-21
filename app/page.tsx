@@ -99,7 +99,7 @@ export default function Home() {
           No tutorials. No spoon-feeding. Just you and the manual.
         </p>
         <p className="text-xs font-mono text-zinc-600 tracking-wide mt-6">
-          Powered by Cerebras • No login required • Local storage
+          You are on your own • No login required • Local storage
         </p>
       </div>
 

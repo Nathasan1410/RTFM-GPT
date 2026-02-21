@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Settings, HelpCircle, Menu, Flame } from "lucide-react"
+import { Settings, HelpCircle, Menu, Flame, Book } from "lucide-react"
 import { Button } from "./ui/button"
 
 export function Header() {
@@ -42,6 +42,12 @@ export function Header() {
             </div>
           )}
 
+          <Link href="/docs">
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground">
+              <Book className="h-5 w-5" />
+              <span className="sr-only">Documentation</span>
+            </Button>
+          </Link>
           <Link href="/settings">
             <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground">
               <Settings className="h-5 w-5" />
