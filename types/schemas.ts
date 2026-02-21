@@ -72,6 +72,7 @@ export type ProgressEntry = z.infer<typeof ProgressEntrySchema>;
 export const GenerateRequestSchema = z.object({
   topic: z.string().min(3).max(100).trim(),
   existingTitles: z.array(z.string()).optional(),
+  version: z.enum(['lite', 'pro']).default('lite'),
 }).strict();
 
 export type GenerateRequest = z.infer<typeof GenerateRequestSchema>;

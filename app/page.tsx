@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Terminal } from "lucide-react";
+import { ArrowRight, Terminal, Zap, Flame } from "lucide-react";
 import { nanoid } from "nanoid";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ const SUGGESTIONS = ["React Hooks", "System Design", "Rust Lifetimes", "Solidity
 
 export default function Home() {
   const [topic, setTopic] = useState("");
+  const [version, setVersion] = useState<'lite' | 'pro'>('lite');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -51,7 +52,7 @@ export default function Home() {
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ topic: cleanTopic, existingTitles }),
+        body: JSON.stringify({ topic: cleanTopic, existingTitles, version }),
       });
 
       // Check if response is JSON
@@ -108,8 +109,45 @@ export default function Home() {
         </p>
       </div>
 
+      {/* Version Toggle */}
+      <div className="w-full max-w-xl mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
+        <div className="flex items-center justify-center gap-4">
+          <button
+            onClick={() => setVersion('lite')}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-mono transition-all",
+              version === 'lite'
+                ? "bg-zinc-800 text-zinc-100 border border-zinc-700"
+                : "bg-transparent text-zinc-500 hover:text-zinc-400 border border-transparent hover:border-zinc-800"
+            )}
+          >
+            <Flame className="w-4 h-4" />
+            <span>Lite</span>
+            <span className="text-xs opacity-60">(Fast)</span>
+          </button>
+          <button
+            onClick={() => setVersion('pro')}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-mono transition-all",
+              version === 'pro'
+                ? "bg-zinc-800 text-zinc-100 border border-zinc-700"
+                : "bg-transparent text-zinc-500 hover:text-zinc-400 border border-transparent hover:border-zinc-800"
+            )}
+          >
+            <Zap className="w-4 h-4" />
+            <span>Pro</span>
+            <span className="text-xs opacity-60">(Deeper)</span>
+          </button>
+        </div>
+        <p className="text-xs text-zinc-600 text-center mt-2 font-mono">
+          {version === 'lite' 
+            ? 'Single-pass generation • 5-7 modules • Great for quick learning'
+            : 'Multi-agent system • Deep research • Specialized per module'}
+        </p>
+      </div>
+
       {/* Input Interface */}
-      <div className="w-full max-w-xl mt-12 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
+      <div className="w-full max-w-xl mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
         <form onSubmit={handleSubmit} className="relative group">
           <label 
             htmlFor="topic" 
@@ -147,18 +185,19 @@ export default function Home() {
               disabled={!topic.trim() || isLoading}
               className={cn(
                 "absolute right-2 top-3 h-10 px-4 rounded-sm text-sm font-mono font-medium transition-all",
-                "bg-zinc-100 text-zinc-950 hover:bg-zinc-200",
+                version === 'pro' ? "bg-zinc-100 text-zinc-950 hover:bg-zinc-200" : "bg-zinc-100 text-zinc-950 hover:bg-zinc-200",
                 "disabled:opacity-50 disabled:cursor-not-allowed"
               )}
             >
               {isLoading ? (
                 <span className="flex items-center gap-2">
-                  <span>Consulting docs</span>
+                  <span>{version === 'pro' ? 'Deep research' : 'Consulting docs'}</span>
                   <span className="animate-blink">█</span>
                 </span>
               ) : (
                 <span className="flex items-center gap-1">
-                  Generate <ArrowRight className="w-4 h-4" />
+                  Generate {version === 'pro' && <Zap className="w-3 h-3" />}
+                  <ArrowRight className="w-4 h-4" />
                 </span>
               )}
             </Button>

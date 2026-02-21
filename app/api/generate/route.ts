@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
-import { GenerateRequestSchema, GenerateResponseSchema } from '@/types/schemas';
+import { GenerateRequestSchema, GenerateResponseSchema, type GenerateResponse } from '@/types/schemas';
 import { z } from 'zod';
 import { getAIClient } from '@/lib/ai';
+import { RoadmapAgentSystem } from '@/lib/agents';
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { topic } = GenerateRequestSchema.parse(body);
+    const { topic, version = 'lite' } = GenerateRequestSchema.parse(body);
 
     const cleanTopic = topic.trim();
     if (cleanTopic.length < 3) {
@@ -19,9 +20,25 @@ export async function POST(req: Request) {
     const groqKey = req.headers.get('x-api-key-groq') || undefined;
     const cerebrasKey = req.headers.get('x-api-key-cerebras') || undefined;
 
-    const { client, defaultModel } = getAIClient({ groq: groqKey, cerebras: cerebrasKey });
+    if (!groqKey && !cerebrasKey) {
+      return NextResponse.json(
+        { error: 'Missing AI API key. Add Groq or Cerebras key in Settings.' },
+        { status: 400 }
+      );
+    }
 
-    const systemPrompt = `
+    let validated: GenerateResponse;
+
+    if (version === 'pro') {
+      const agentSystem = new RoadmapAgentSystem({
+        groq: groqKey,
+        cerebras: cerebrasKey,
+      });
+      validated = await agentSystem.generatePro(cleanTopic);
+    } else {
+      const { client, defaultModel } = getAIClient({ groq: groqKey, cerebras: cerebrasKey });
+
+      const systemPrompt = `
 You are a Brutal Tech Mentor & Project Architect.
 Your goal is to break down the user's request: "${topic}" into a "Project-Based Micro-Chunking" roadmap.
 
@@ -62,41 +79,39 @@ JSON Structure:
 Generate 5-7 micro-steps.
 `;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const completion = await (client as any).chat.completions.create({
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Create a rigorous learning roadmap for: ${cleanTopic}` }
-      ],
-      model: defaultModel,
-      temperature: 0.7,
-      max_completion_tokens: 4000,
-      response_format: { type: 'json_object' },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }) as any;
+      const completion = await (client as any).chat.completions.create({
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Create a rigorous learning roadmap for: ${cleanTopic}` }
+        ],
+        model: defaultModel,
+        temperature: 0.7,
+        max_completion_tokens: 4000,
+        response_format: { type: 'json_object' },
+      }) as any;
 
-    const content = completion.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('Failed to generate content');
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('Failed to generate content');
+      }
+
+      let cleanContent = content;
+      const markdownMatch = content.match(/```json\n([\s\S]*?)\n```/);
+      if (markdownMatch) {
+        cleanContent = markdownMatch[1];
+      }
+
+      let json;
+      try {
+        json = JSON.parse(cleanContent);
+      } catch (e) {
+        console.error("JSON Parse Error:", e);
+        console.error("Raw Content:", content);
+        throw new Error('Invalid JSON format received from AI');
+      }
+
+      validated = GenerateResponseSchema.parse(json);
     }
-
-    // Try to sanitize JSON if it contains markdown code blocks
-    let cleanContent = content;
-    const markdownMatch = content.match(/```json\n([\s\S]*?)\n```/);
-    if (markdownMatch) {
-      cleanContent = markdownMatch[1];
-    }
-
-    let json;
-    try {
-      json = JSON.parse(cleanContent);
-    } catch (e) {
-      console.error("JSON Parse Error:", e);
-      console.error("Raw Content:", content);
-      throw new Error('Invalid JSON format received from AI');
-    }
-
-    const validated = GenerateResponseSchema.parse(json);
     
     return NextResponse.json(validated);
   } catch (error) {
